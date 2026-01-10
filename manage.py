@@ -7,7 +7,7 @@ import sys
 def main():
     """Run administrative tasks."""
     # VERIFIE ICI : S'écrit bien en minuscule 'config' d'après ton DIR
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Config.settings')
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
