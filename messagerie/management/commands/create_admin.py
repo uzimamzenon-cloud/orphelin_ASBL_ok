@@ -6,8 +6,15 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         # Vérifier si l'utilisateur admin existe déjà
-        if User.objects.filter(username='admin').exists():
-            self.stdout.write(self.style.SUCCESS('✅ Admin existe déjà'))
+        admin_user = User.objects.filter(username='admin').first()
+        
+        if admin_user:
+            # L'admin existe, réinitialiser le mot de passe
+            admin_user.set_password('Admin123456')
+            admin_user.is_staff = True
+            admin_user.is_superuser = True
+            admin_user.save()
+            self.stdout.write(self.style.SUCCESS('✅ Admin réinitialisé: admin / Admin123456'))
             return
 
         # Créer le super utilisateur
