@@ -90,7 +90,11 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'uzimamzenon@gmail.com'
 # Ce code de 16 lettres doit être dans ton onglet "Environment" sur Render
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'dktj wksi qcpk lewn') 
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'dktj wksi qcpk lewn')
+# Timeout pour les connexions email (30 secondes)
+EMAIL_TIMEOUT = 30
+# Nombre de tentatives d'envoi
+EMAIL_RETRIES = 1
 DEFAULT_FROM_EMAIL = f"Orphelin Priorité ASBL <{EMAIL_HOST_USER}>"
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

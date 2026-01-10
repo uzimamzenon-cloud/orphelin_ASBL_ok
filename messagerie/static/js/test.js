@@ -1420,7 +1420,8 @@ function initContactForm() {
                     'X-CSRFToken': getCSRFToken() || ''
                 },
                 body: JSON.stringify(data),
-                credentials: 'same-origin'
+                credentials: 'same-origin',
+                signal: AbortSignal.timeout(30000) // 30 secondes timeout
             });
 
             console.log('📊 Réponse du serveur:', response.status, response.statusText);

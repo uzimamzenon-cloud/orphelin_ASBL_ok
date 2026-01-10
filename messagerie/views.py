@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.core.mail import send_mail
@@ -18,11 +19,75 @@ def page_accueil(request):
         logger.error(f"❌ Erreur page accueil: {e}")
         return JsonResponse({"error": str(e)}, status=500)
 
+def send_emails_async(nom, email, message, sujet, motif):
+    """
+    Envoie les emails en arrière-plan (thread séparé)
+    pour ne pas bloquer la réponse HTTP
+    """
+    try:
+        logger.info(f"📧 Envoi des emails pour {email}...")
+        
+        # Email vers l'ASBL
+        sujet_asbl = f"📬 Contact ASBL: {sujet} ({nom})"
+        corps_asbl = f"""Nouveau message de contact reçu sur le site:
+
+👤 NOM: {nom}
+📧 EMAIL: {email}
+🎯 MOTIF: {motif}
+📝 SUJET: {sujet}
+
+MESSAGE:
+{message}
+
+---
+Envoyé par le formulaire de contact du site
+"""
+        
+        try:
+            send_mail(
+                subject=sujet_asbl,
+                message=corps_asbl,
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=['uzimamzenon@gmail.com'],
+                fail_silently=False,
+            )
+            logger.info(f"✅ Email ASBL envoyé avec succès")
+        except Exception as e:
+            logger.error(f"⚠️ Erreur envoi email ASBL: {type(e).__name__}: {e}")
+
+        # Email de confirmation au visiteur
+        sujet_confirm = f"✅ Nous avons reçu votre message"
+        corps_confirm = f"""Bonjour {nom},
+
+Merci de nous avoir contactés! Votre message a bien été reçu par Orphelin Priorité ASBL.
+
+Nous vous répondrons dans les meilleurs délais.
+
+Cordialement,
+Orphelin Priorité ASBL
+"""
+        
+        try:
+            send_mail(
+                subject=sujet_confirm,
+                message=corps_confirm,
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[email],
+                fail_silently=False,
+            )
+            logger.info(f"✅ Email confirmation envoyé à {email}")
+        except Exception as e:
+            logger.error(f"⚠️ Erreur envoi email confirmation: {type(e).__name__}: {e}")
+            
+    except Exception as e:
+        logger.error(f"❌ Erreur critique dans send_emails_async: {type(e).__name__}: {e}", exc_info=True)
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def enregistrer_message(request):
     """
     Reçoit les données du formulaire de contact et envoie des emails
+    Les emails sont envoyés en arrière-plan pour ne pas bloquer la réponse
     """
     try:
         # 1. Parser les données JSON
@@ -58,89 +123,21 @@ def enregistrer_message(request):
                 status=400
             )
 
-        # 4. Préparer les emails
-        try:
-            # Email vers l'ASBL
-            sujet_asbl = f"📬 Contact ASBL: {sujet} ({nom})"
-            corps_asbl = f"""Nouveau message de contact reçu sur le site:
-
-👤 NOM: {nom}
-📧 EMAIL: {email}
-🎯 MOTIF: {motif}
-📝 SUJET: {sujet}
-
-MESSAGE:
-{message}
-
----
-Envoyé par le formulaire de contact du site
-"""
-            
-            # Essayer d'envoyer l'email à l'ASBL
-            try:
-                send_mail(
-                    subject=sujet_asbl,
-                    message=corps_asbl,
-                    from_email=settings.EMAIL_HOST_USER,
-                    recipient_list=['uzimamzenon@gmail.com'],
-                    fail_silently=False,
-                )
-                logger.info("✅ Email ASBL envoyé avec succès")
-                email_asbl_sent = True
-            except Exception as e:
-                logger.error(f"⚠️ Erreur envoi email ASBL: {type(e).__name__}: {e}")
-                email_asbl_sent = False
-
-            # Email de confirmation au visiteur
-            sujet_confirm = f"✅ Nous avons reçu votre message"
-            corps_confirm = f"""Bonjour {nom},
-
-Merci de nous avoir contactés! Votre message a bien été reçu par Orphelin Priorité ASBL.
-
-Nous vous répondrons dans les meilleurs délais.
-
-Cordialement,
-Orphelin Priorité ASBL
-"""
-            
-            try:
-                send_mail(
-                    subject=sujet_confirm,
-                    message=corps_confirm,
-                    from_email=settings.EMAIL_HOST_USER,
-                    recipient_list=[email],
-                    fail_silently=False,
-                )
-                logger.info(f"✅ Email confirmation envoyé à {email}")
-                email_confirm_sent = True
-            except Exception as e:
-                logger.error(f"⚠️ Erreur envoi email confirmation: {type(e).__name__}: {e}")
-                email_confirm_sent = False
-
-            # Vérifier qu'au moins un email a été envoyé
-            if email_asbl_sent or email_confirm_sent:
-                response_message = "✅ Merci! Votre message a été enregistré."
-                if not email_confirm_sent:
-                    response_message += " (Confirmation email échouée)"
-                
-                logger.info(f"✅ Formulaire traité avec succès pour {email}")
-                return JsonResponse(
-                    {"success": True, "message": response_message},
-                    status=201
-                )
-            else:
-                logger.error("❌ Aucun email n'a pu être envoyé")
-                return JsonResponse(
-                    {"success": False, "message": "Erreur lors de l'envoi des emails"},
-                    status=500
-                )
-
-        except Exception as e:
-            logger.error(f"❌ Erreur critique email: {type(e).__name__}: {e}", exc_info=True)
-            return JsonResponse(
-                {"success": False, "message": f"Erreur serveur: {str(e)}"},
-                status=500
-            )
+        # 4. Lancer l'envoi des emails en arrière-plan (NON-BLOQUANT)
+        email_thread = threading.Thread(
+            target=send_emails_async,
+            args=(nom, email, message, sujet, motif),
+            daemon=True
+        )
+        email_thread.start()
+        
+        logger.info(f"✅ Formulaire enregistré pour {email} - Envoi des emails en cours...")
+        
+        # Retourner immédiatement sans attendre les emails
+        return JsonResponse(
+            {"success": True, "message": "✅ Merci! Votre message a été enregistré. Vous recevrez un email de confirmation."},
+            status=201
+        )
 
     except Exception as e:
         logger.error(f"❌ Erreur non gérée: {type(e).__name__}: {e}", exc_info=True)
