@@ -37,7 +37,7 @@ MIDDLEWARE = [
 ]
 
 # ⚠️ CORRECTION : Ici on met le nom EXACT de ton dossier (configuration)
-ROOT_URLCONF = 'configuration.urls'
+ROOT_URLCONF = 'Config.urls'
 
 TEMPLATES = [
     {
@@ -56,7 +56,7 @@ TEMPLATES = [
 ]
 
 # ⚠️ CORRECTION : Ici aussi
-WSGI_APPLICATION = 'configuration.wsgi.application'
+WSGI_APPLICATION = 'Config.wsgi.application'
 
 # --- BASE DE DONNÉES ---
 DATABASES = {
