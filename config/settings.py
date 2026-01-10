@@ -42,7 +42,7 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'config.urls'
-WSGI_APPLICATION = 'Config.wsgi.application'
+WSGI_APPLICATION = 'config.wsgi.application'
 
 TEMPLATES = [
     {
