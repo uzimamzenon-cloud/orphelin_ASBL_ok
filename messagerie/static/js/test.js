@@ -1362,18 +1362,28 @@ function initContactForm() {
         e.preventDefault();
         console.log('📤 Soumission du formulaire détectée');
 
-        // 1. Récupérer les valeurs - En cherchant par name au lieu de id
+        // 1. Récupérer les valeurs du formulaire
         const form = e.target;
         
+        // Chercher les inputs par name (priorité) ou par id
+        const nomInput = form.querySelector('[name="name"]') || form.querySelector('[name="nom"]') || document.getElementById('name');
+        const emailInput = form.querySelector('[name="email"]') || document.getElementById('email');
+        const sujetInput = form.querySelector('[name="subject"]') || form.querySelector('[name="sujet"]') || document.getElementById('subject');
+        const motifInput = form.querySelector('[name="reason"]') || form.querySelector('[name="motif"]') || document.getElementById('reason');
+        const messageInput = form.querySelector('[name="message"]') || document.getElementById('message');
+
         const data = {
-            nom: form.querySelector('[name="name"]')?.value || form.querySelector('[name="nom"]')?.value || document.getElementById('name')?.value || '',
-            email: form.querySelector('[name="email"]')?.value || document.getElementById('email')?.value || '',
-            sujet: form.querySelector('[name="subject"]')?.value || form.querySelector('[name="sujet"]')?.value || document.getElementById('subject')?.value || "Sans sujet",
-            motif: form.querySelector('[name="reason"]')?.value || form.querySelector('[name="motif"]')?.value || document.getElementById('reason')?.value || '',
-            message: form.querySelector('[name="message"]')?.value || document.getElementById('message')?.value || ''
+            nom: nomInput?.value?.trim() || '',
+            email: emailInput?.value?.trim() || '',
+            sujet: sujetInput?.value?.trim() || "Sans sujet",
+            motif: motifInput?.value?.trim() || '',
+            message: messageInput?.value?.trim() || ''
         };
 
         console.log('📝 Données à envoyer:', data);
+        console.log('✓ Champ Nom:', data.nom);
+        console.log('✓ Champ Email:', data.email);
+        console.log('✓ Champ Message:', data.message);
 
         // Validation simple
         if (!data.nom || !data.email || !data.message) {
@@ -1432,8 +1442,15 @@ function initContactForm() {
                 showToast("❌ Erreur CSRF. Rafraîchissez la page.", 'error');
             } else if (response.status === 500) {
                 const text = await response.text();
-                console.error('❌ Erreur serveur 500:', text);
-                showToast("❌ Erreur serveur 500. Vérifiez les logs Django.", 'error');
+                console.error('❌ Erreur serveur 500 - Texte complet:', text);
+                // Essayer de parser le JSON si c'est une erreur Django
+                try {
+                    const errorJson = JSON.parse(text);
+                    console.error('❌ Erreur JSON:', errorJson);
+                    showToast(`❌ Erreur serveur: ${errorJson.message || 'Erreur inconnue'}`, 'error');
+                } catch (e) {
+                    showToast("❌ Erreur serveur 500. Vérifiez les logs Django.", 'error');
+                }
             } else {
                 console.error('❌ Erreur HTTP:', response.status);
                 showToast(`❌ Erreur ${response.status}: ${response.statusText}`, 'error');
