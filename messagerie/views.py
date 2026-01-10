@@ -1,112 +1,150 @@
 import json
+import logging
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.core.mail import send_mail
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+
+# Logger pour les erreurs
+logger = logging.getLogger(__name__)
 
 def page_accueil(request):
-    return render(request, 'index.html')
+    """Affiche la page d'accueil"""
+    try:
+        return render(request, 'index.html')
+    except Exception as e:
+        logger.error(f"❌ Erreur page accueil: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
 
 @csrf_exempt
+@require_http_methods(["POST"])
 def enregistrer_message(request):
-    if request.method == 'POST':
+    """
+    Reçoit les données du formulaire de contact et envoie des emails
+    """
+    try:
+        # 1. Parser les données JSON
         try:
-            # 1. On déballe les données JSON du JavaScript
             data = json.loads(request.body)
-            print(f"✅ Données reçues : {data}") 
-
-            # Validation des données obligatoires
-            required_fields = ['nom', 'email', 'message']
-            missing_fields = [field for field in required_fields if not data.get(field)]
-            
-            if missing_fields:
-                print(f"⚠️ Champs manquants : {missing_fields}")
-                return JsonResponse(
-                    {"success": False, "message": f"Champs obligatoires manquants : {', '.join(missing_fields)}"}, 
-                    status=400
-                )
-
-            # 2. Envoi de l'Email au Gmail de l'ASBL
-            email_sent = False
-            try:
-                print(f"📧 Configuration email : HOST={settings.EMAIL_HOST}, PORT={settings.EMAIL_PORT}, USER={settings.EMAIL_HOST_USER}")
-                
-                sujet_email = f"📬 ASBL Contact : {data.get('sujet', 'Sans sujet')} ({data.get('nom')})"
-                contenu_email = f"""
-Nouveau message de contact :
-
-👤 Nom : {data.get('nom')}
-📧 Email : {data.get('email')}
-🎯 Motif : {data.get('motif', 'Non spécifié')}
-📝 Sujet : {data.get('sujet', 'Sans sujet')}
-
-Message :
-{data.get('message')}
-                """
-                
-                # Envoyer à l'ASBL
-                send_mail(
-                    sujet_email,
-                    contenu_email,
-                    settings.EMAIL_HOST_USER,
-                    ['uzimamzenon@gmail.com'], 
-                    fail_silently=False,
-                )
-                print("✅ Email ASBL envoyé avec succès")
-                email_sent = True
-                
-                # 3. Envoyer email de confirmation au visiteur
-                send_mail(
-                    f"✅ Merci {data.get('nom')} ! Votre message a été reçu",
-                    f"""Bonjour {data.get('nom')},
-
-Merci de nous avoir contactés. Votre message a bien été enregistré et nous vous répondrons au plus tôt.
-
-Cordialement,
-Orphelin Priorité ASBL""",
-                    settings.EMAIL_HOST_USER,
-                    [data.get('email')],
-                    fail_silently=False,
-                )
-                print("✅ Email de confirmation envoyé au visiteur")
-                
-            except Exception as mail_err:
-                print(f"⚠️ ERREUR EMAIL : {type(mail_err).__name__} - {mail_err}")
-                import traceback
-                traceback.print_exc()
-                
-                if email_sent:
-                    # Si au moins l'email ASBL a été envoyé, continuer
-                    return JsonResponse(
-                        {"success": True, "message": "✅ Message reçu (confirmation email échouée)"}, 
-                        status=201
-                    )
-                else:
-                    # Si rien n'a été envoyé, erreur
-                    return JsonResponse(
-                        {"success": False, "message": f"Erreur email : {str(mail_err)}"}, 
-                        status=500
-                    )
-
-            return JsonResponse(
-                {"success": True, "message": "✅ Message enregistré et email envoyé !"}, 
-                status=201
-            )
-
+            logger.info(f"📥 Données reçues: {data}")
         except json.JSONDecodeError as e:
-            print(f"❌ ERREUR JSON : {e}")
+            logger.error(f"❌ JSON invalide: {e}")
             return JsonResponse(
-                {"success": False, "message": "Format JSON invalide"}, 
+                {"success": False, "message": "Format JSON invalide"},
                 status=400
             )
-        except Exception as e:
-            print(f"❌ ERREUR GLOBALE : {type(e).__name__} - {e}")
-            import traceback
-            traceback.print_exc()
+
+        # 2. Valider les champs obligatoires
+        nom = data.get('nom', '').strip()
+        email = data.get('email', '').strip()
+        message = data.get('message', '').strip()
+        sujet = data.get('sujet', 'Sans sujet').strip()
+        motif = data.get('motif', 'Non spécifié').strip()
+
+        if not nom or not email or not message:
+            logger.warning(f"⚠️ Champs manquants - Nom: {nom}, Email: {email}, Message: {message}")
             return JsonResponse(
-                {"success": False, "message": f"Erreur serveur : {str(e)}"}, 
+                {"success": False, "message": "Les champs nom, email et message sont obligatoires"},
+                status=400
+            )
+
+        # 3. Valider le format email basique
+        if '@' not in email or '.' not in email:
+            logger.warning(f"⚠️ Email invalide: {email}")
+            return JsonResponse(
+                {"success": False, "message": "Format email invalide"},
+                status=400
+            )
+
+        # 4. Préparer les emails
+        try:
+            # Email vers l'ASBL
+            sujet_asbl = f"📬 Contact ASBL: {sujet} ({nom})"
+            corps_asbl = f"""Nouveau message de contact reçu sur le site:
+
+👤 NOM: {nom}
+📧 EMAIL: {email}
+🎯 MOTIF: {motif}
+📝 SUJET: {sujet}
+
+MESSAGE:
+{message}
+
+---
+Envoyé par le formulaire de contact du site
+"""
+            
+            # Essayer d'envoyer l'email à l'ASBL
+            try:
+                send_mail(
+                    subject=sujet_asbl,
+                    message=corps_asbl,
+                    from_email=settings.EMAIL_HOST_USER,
+                    recipient_list=['uzimamzenon@gmail.com'],
+                    fail_silently=False,
+                )
+                logger.info("✅ Email ASBL envoyé avec succès")
+                email_asbl_sent = True
+            except Exception as e:
+                logger.error(f"⚠️ Erreur envoi email ASBL: {type(e).__name__}: {e}")
+                email_asbl_sent = False
+
+            # Email de confirmation au visiteur
+            sujet_confirm = f"✅ Nous avons reçu votre message"
+            corps_confirm = f"""Bonjour {nom},
+
+Merci de nous avoir contactés! Votre message a bien été reçu par Orphelin Priorité ASBL.
+
+Nous vous répondrons dans les meilleurs délais.
+
+Cordialement,
+Orphelin Priorité ASBL
+"""
+            
+            try:
+                send_mail(
+                    subject=sujet_confirm,
+                    message=corps_confirm,
+                    from_email=settings.EMAIL_HOST_USER,
+                    recipient_list=[email],
+                    fail_silently=False,
+                )
+                logger.info(f"✅ Email confirmation envoyé à {email}")
+                email_confirm_sent = True
+            except Exception as e:
+                logger.error(f"⚠️ Erreur envoi email confirmation: {type(e).__name__}: {e}")
+                email_confirm_sent = False
+
+            # Vérifier qu'au moins un email a été envoyé
+            if email_asbl_sent or email_confirm_sent:
+                response_message = "✅ Merci! Votre message a été enregistré."
+                if not email_confirm_sent:
+                    response_message += " (Confirmation email échouée)"
+                
+                logger.info(f"✅ Formulaire traité avec succès pour {email}")
+                return JsonResponse(
+                    {"success": True, "message": response_message},
+                    status=201
+                )
+            else:
+                logger.error("❌ Aucun email n'a pu être envoyé")
+                return JsonResponse(
+                    {"success": False, "message": "Erreur lors de l'envoi des emails"},
+                    status=500
+                )
+
+        except Exception as e:
+            logger.error(f"❌ Erreur critique email: {type(e).__name__}: {e}", exc_info=True)
+            return JsonResponse(
+                {"success": False, "message": f"Erreur serveur: {str(e)}"},
                 status=500
             )
-    
-    return JsonResponse({"success": False, "message": "Méthode non autorisée"}, status=405)
+
+    except Exception as e:
+        logger.error(f"❌ Erreur non gérée: {type(e).__name__}: {e}", exc_info=True)
+        return JsonResponse(
+            {"success": False, "message": "Erreur serveur interne"},
+            status=500
+        )
