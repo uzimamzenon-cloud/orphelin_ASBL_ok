@@ -1349,6 +1349,7 @@ function initForms() {
 }
 
 // FONCTION CORRIGÉE : FORMULAIRE DE CONTACT FONCTIONNEL
+
 function initContactForm() {
     const contactForm = document.getElementById('contactForm');
     if (!contactForm) {
@@ -1505,8 +1506,9 @@ function initDonationForms() {
     });
 }
 
+
 // =====================================================================
-// FONCTIONS UTILITAIRES
+// FONCTIONS UTILITAIRESs
 // =====================================================================
 function checkMobileView() {
     isMobile = window.innerWidth <= 768;
