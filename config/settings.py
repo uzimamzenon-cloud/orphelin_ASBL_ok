@@ -6,8 +6,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- SÉCURITÉ ---
 SECRET_KEY = 'django-insecure-cle-de-test-a-changer-en-production'
-DEBUG = True  # Laisse True pour débugger, mets False quand tout sera fini
-ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', 'orphelin-asbl.onrender.com']
+# DEBUG = True en local, False sur Render
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', 'orphelin-asbl-ok.onrender.com', 'orphelin-asbl.onrender.com']
 
 # --- APPLICATIONS ---
 INSTALLED_APPS = [
