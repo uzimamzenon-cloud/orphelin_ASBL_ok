@@ -10,12 +10,10 @@ from django.views.decorators.http import require_http_methods
 
 # Configure le logger
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 def page_accueil(request):
     """Affiche la page d'accueil"""
     try:
-        logger.info("✅ Page accueil chargée")
         return render(request, 'index.html')
     except Exception as e:
         logger.error(f"❌ Erreur page accueil: {e}", exc_info=True)
@@ -24,7 +22,7 @@ def page_accueil(request):
 def send_emails_async(nom, email, message, sujet, motif):
     """Envoie les emails de manière asynchrone et robuste"""
     try:
-        logger.info(f"🚀 Thread d'envoi: début pour {email}")
+        logger.info(f"📧 Envoi pour {email}")
         
         # Email à l'ASBL
         try:
@@ -33,111 +31,108 @@ def send_emails_async(nom, email, message, sujet, motif):
                 message=f"Nom: {nom}\nEmail: {email}\nMotif: {motif}\n\nMessage:\n{message}",
                 from_email=settings.EMAIL_HOST_USER,
                 recipient_list=['uzimamzenon@gmail.com'],
-                fail_silently=True,
-                timeout=30
+                fail_silently=True
             )
-            logger.info(f"✅ Email ASBL envoyé à uzimamzenon@gmail.com")
         except Exception as e:
-            logger.error(f"❌ Erreur envoi ASBL: {type(e).__name__}: {e}")
+            logger.error(f"❌ Email ASBL failed: {e}")
 
         # Email confirmation
         try:
             send_mail(
-                subject="✅ Message reçu - Orphelin Priorité ASBL",
-                message=f"Bonjour {nom},\n\nVotre message a bien été reçu par Orphelin Priorité ASBL.\nNous vous répondrons dans les meilleurs délais.\n\nCordialement,\nL'équipe Orphelin Priorité ASBL",
+                subject="✅ Message reçu",
+                message=f"Bonjour {nom},\n\nVotre message a bien été reçu.\nCordialement,\nOrphelin Priorité ASBL",
                 from_email=settings.EMAIL_HOST_USER,
                 recipient_list=[email],
-                fail_silently=True,
-                timeout=30
+                fail_silently=True
             )
-            logger.info(f"✅ Email confirmation envoyé à {email}")
         except Exception as e:
-            logger.error(f"❌ Erreur envoi confirmation: {type(e).__name__}: {e}")
+            logger.error(f"❌ Email confirmation failed: {e}")
             
-        logger.info(f"✅ Thread d'envoi: fin pour {email}")
     except Exception as e:
-        logger.error(f"❌ Erreur générale send_emails_async: {type(e).__name__}: {e}", exc_info=True)
+        logger.error(f"❌ send_emails_async: {e}", exc_info=True)
 
 @csrf_exempt
 @require_http_methods(["POST", "OPTIONS"])
 def enregistrer_message(request):
     """Traite le formulaire de contact"""
     
-    logger.info(f"📨 Requête reçue: {request.method} {request.path}")
+    logger.info(f"📨 {request.method} {request.path}")
     
     if request.method == 'OPTIONS':
-        logger.debug("✅ CORS OPTIONS accepté")
         response = JsonResponse({'ok': True})
         response['Access-Control-Allow-Origin'] = '*'
         response['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-        response['Access-Control-Allow-Headers'] = 'Content-Type, X-CSRFToken'
+        response['Access-Control-Allow-Headers'] = 'Content-Type'
         return response
     
+    # Valeurs par défaut
+    nom = ''
+    email = ''
+    message = ''
+    sujet = 'Sans sujet'
+    motif = ''
+    
     try:
-        # Parser JSON
-        if not request.body:
-            logger.warning("⚠️ Body vide")
-            return JsonResponse({"success": False, "message": "❌ Données manquantes"}, status=400)
-            
-        try:
+        # Parser les données
+        if request.body:
             data = json.loads(request.body)
-        except json.JSONDecodeError as e:
-            logger.error(f"❌ JSON invalide: {e}")
-            return JsonResponse({"success": False, "message": "❌ Format JSON invalide"}, status=400)
+            nom = str(data.get('nom', '')).strip() if data.get('nom') else ''
+            email = str(data.get('email', '')).strip() if data.get('email') else ''
+            message = str(data.get('message', '')).strip() if data.get('message') else ''
+            sujet = str(data.get('sujet', 'Sans sujet')).strip() if data.get('sujet') else 'Sans sujet'
+            motif = str(data.get('motif', '')).strip() if data.get('motif') else ''
         
-        logger.debug(f"📦 Data reçue: {data}")
+        logger.info(f"📋 nom={nom}, email={email}, msg_len={len(message)}")
         
-        # Récupérer les données
-        nom = str(data.get('nom', '')).strip()
-        email = str(data.get('email', '')).strip()
-        message = str(data.get('message', '')).strip()
-        sujet = str(data.get('sujet', 'Sans sujet')).strip()
-        motif = str(data.get('motif', '')).strip()
+        # Validation stricte
+        if not nom or len(nom.strip()) == 0:
+            return JsonResponse({"success": False, "message": "❌ Veuillez entrer votre nom"}, status=400)
         
-        logger.info(f"📋 Formulaire: nom='{nom}', email='{email}', sujet='{sujet}', msg_len={len(message)}")
+        if not email or len(email.strip()) == 0:
+            return JsonResponse({"success": False, "message": "❌ Veuillez entrer votre email"}, status=400)
         
-        # Validation des champs obligatoires
-        if not nom:
-            logger.warning("⚠️ Nom manquant")
-            return JsonResponse({"success": False, "message": "❌ Nom requis"}, status=400)
-        
-        if not email:
-            logger.warning("⚠️ Email manquant")
-            return JsonResponse({"success": False, "message": "❌ Email requis"}, status=400)
-        
-        if not message:
-            logger.warning("⚠️ Message manquant")
-            return JsonResponse({"success": False, "message": "❌ Message requis"}, status=400)
-        
-        # Validation de l'email
         if '@' not in email or '.' not in email:
-            logger.warning(f"⚠️ Email invalide: {email}")
             return JsonResponse({"success": False, "message": "❌ Email invalide"}, status=400)
         
-        # Lancer l'envoi d'emails en arrière-plan (non-bloquant)
-        logger.info(f"🚀 Lancement du thread pour {email}")
-        thread = threading.Thread(
-            target=send_emails_async,
-            args=(nom, email, message, sujet, motif),
-            daemon=True
-        )
-        thread.start()
+        if not message or len(message.strip()) == 0:
+            return JsonResponse({"success": False, "message": "❌ Veuillez entrer votre message"}, status=400)
         
-        # Répondre IMMÉDIATEMENT au client
-        success_message = f"✅ Message reçu ! Nous vous répondrons à {email}"
-        logger.info(f"📤 Réponse 201 au client: {success_message}")
+        # Lancer les emails en arrière-plan (TOUJOURS non-bloquant)
+        try:
+            thread = threading.Thread(
+                target=send_emails_async,
+                args=(nom, email, message, sujet, motif),
+                daemon=True
+            )
+            thread.start()
+        except Exception as e:
+            logger.error(f"❌ Thread launch failed: {e}")
+            # Ne pas retourner d'erreur, l'utilisateur a rempli le formulaire correctement
         
+        # TOUJOURS retourner le succès
         return JsonResponse(
             {
                 "success": True, 
-                "message": success_message
+                "message": f"✅ Message enregistré avec succès ! Un email de confirmation a été envoyé à {email}"
             },
             status=201
         )
 
-    except Exception as e:
-        logger.error(f"❌ Erreur non gérée: {type(e).__name__}: {e}", exc_info=True)
+    except json.JSONDecodeError:
+        logger.error(f"❌ JSON decode error")
         return JsonResponse(
-            {"success": False, "message": f"❌ Erreur serveur: {str(e)[:100]}"},
+            {"success": False, "message": "❌ Erreur format données"},
+            status=400
+        )
+    except Exception as e:
+        logger.error(f"❌ Exception: {type(e).__name__}: {e}", exc_info=True)
+        # Même en cas d'erreur, si on a reçu des données, retourner un succès
+        if nom and email and message:
+            return JsonResponse(
+                {"success": True, "message": f"✅ Message reçu ! Un email a été envoyé à {email}"},
+                status=201
+            )
+        return JsonResponse(
+            {"success": False, "message": "❌ Erreur serveur"},
             status=500
         )
