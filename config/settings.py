@@ -5,10 +5,10 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- SÉCURITÉ ---
-SECRET_KEY = 'django-insecure-cle-de-test-a-changer-en-production'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-7fg2k9d8jf9djf8j9d8fj9d8fj9d8fj9d8fj9d8')
 # DEBUG = True en local, False sur Render
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
-ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', 'orphelin-asbl-ok.onrender.com', 'orphelin-asbl.onrender.com']
+ALLOWED_HOSTS = ['orphelin-asbl-ok.onrender.com', 'orphelin-asbl.onrender.com', 'localhost', '127.0.0.1', '*']
 
 # --- APPLICATIONS ---
 INSTALLED_APPS = [
@@ -81,7 +81,12 @@ STORAGES = {
 
 # --- SÉCURITÉ ---
 CORS_ALLOW_ALL_ORIGINS = True
-CSRF_TRUSTED_ORIGINS = ['https://orphelin-asbl.onrender.com', 'http://127.0.0.1:8000']
+CSRF_TRUSTED_ORIGINS = ['https://orphelin-asbl-ok.onrender.com', 'https://orphelin-asbl.onrender.com', 'http://127.0.0.1:8000', 'http://localhost:8000']
+
+# HTTPS sur Render
+SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'False') == 'True'
+SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'False') == 'True'
+CSRF_COOKIE_SECURE = os.environ.get('CSRF_COOKIE_SECURE', 'False') == 'True'
 
 # --- CONFIGURATION EMAIL (GMAIL) ---
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
