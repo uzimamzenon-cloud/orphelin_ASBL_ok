@@ -4,10 +4,10 @@ services:
     runtime: python
     pythonVersion: 3.11
     buildCommand: pip install -r requirements.txt && python manage.py migrate && python manage.py collectstatic --noinput
-    startCommand: gunicorn config.wsgi:application
+    startCommand: gunicorn configuration.wsgi:application
     envVars:
       - key: DJANGO_SETTINGS_MODULE
-        value: config.settings
+        value: configuration.settings
       - key: ALLOWED_HOSTS
         value: "*"
       - key: DEBUG
