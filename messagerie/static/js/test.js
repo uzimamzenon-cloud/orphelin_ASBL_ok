@@ -1352,116 +1352,124 @@ function initForms() {
 function initContactForm() {
     const contactForm = document.getElementById('contactForm');
     if (!contactForm) {
-        console.warn('⚠️ Formulaire de contact non trouvé (ID: contactForm)');
+        console.error('❌ ERREUR CRITIQUE: Formulaire de contact NOT FOUND! ID: contactForm');
         return;
     }
 
-    console.log('✅ Formulaire de contact initialisé');
+    console.log('✅ Formulaire de contact trouvé et initialisé');
 
     contactForm.addEventListener('submit', async function(e) {
         e.preventDefault();
-        console.log('📤 Soumission du formulaire détectée');
+        console.log('📤 SUBMIT DU FORMULAIRE DÉTECTÉ');
 
-        // 1. Récupérer les valeurs du formulaire
-        const form = e.target;
-        
-        // Chercher les inputs par name (priorité) ou par id
-        const nomInput = form.querySelector('[name="name"]') || form.querySelector('[name="nom"]') || document.getElementById('name');
-        const emailInput = form.querySelector('[name="email"]') || document.getElementById('email');
-        const sujetInput = form.querySelector('[name="subject"]') || form.querySelector('[name="sujet"]') || document.getElementById('subject');
-        const motifInput = form.querySelector('[name="reason"]') || form.querySelector('[name="motif"]') || document.getElementById('reason');
-        const messageInput = form.querySelector('[name="message"]') || document.getElementById('message');
+        // Récupérer les inputs
+        const nomInput = document.getElementById('name');
+        const emailInput = document.getElementById('email');
+        const sujetInput = document.getElementById('subject');
+        const motifInput = document.getElementById('reason');
+        const messageInput = document.getElementById('message');
 
+        console.log('📋 Inputs trouvés:', {
+            nom: nomInput ? '✓' : '✗',
+            email: emailInput ? '✓' : '✗',
+            sujet: sujetInput ? '✓' : '✗',
+            motif: motifInput ? '✓' : '✗',
+            message: messageInput ? '✓' : '✗'
+        });
+
+        // Récupérer les valeurs
         const data = {
             nom: nomInput?.value?.trim() || '',
             email: emailInput?.value?.trim() || '',
-            sujet: sujetInput?.value?.trim() || "Sans sujet",
+            sujet: sujetInput?.value?.trim() || 'Sans sujet',
             motif: motifInput?.value?.trim() || '',
             message: messageInput?.value?.trim() || ''
         };
 
-        console.log('📝 Données à envoyer:', data);
-        console.log('✓ Champ Nom:', data.nom);
-        console.log('✓ Champ Email:', data.email);
-        console.log('✓ Champ Message:', data.message);
+        console.log('📝 Données du formulaire:', data);
 
-        // Validation simple
+        // Validation obligatoire
         if (!data.nom || !data.email || !data.message) {
-            console.warn('⚠️ Champs obligatoires vides');
+            console.warn('⚠️ VALIDATION ÉCHOUÉE: Champs manquants');
+            console.warn('  - Nom:', data.nom ? '✓' : '✗ MANQUANT');
+            console.warn('  - Email:', data.email ? '✓' : '✗ MANQUANT');
+            console.warn('  - Message:', data.message ? '✓' : '✗ MANQUANT');
             showToast('⚠️ Veuillez remplir tous les champs obligatoires (nom, email, message)', 'error');
             return;
         }
 
-        // Validation email
+        // Validation email simple
         if (!isValidEmail(data.email)) {
-            console.warn('⚠️ Email invalide:', data.email);
+            console.warn('⚠️ EMAIL INVALIDE:', data.email);
             showToast('⚠️ Email invalide', 'error');
             return;
         }
 
-        // Animation du bouton
+        // Bouton submit
         const submitBtn = contactForm.querySelector('button[type="submit"]');
         if (!submitBtn) {
-            console.warn('⚠️ Bouton submit non trouvé');
+            console.error('❌ Bouton submit NOT FOUND');
             return;
         }
 
         const originalText = submitBtn.innerHTML;
         submitBtn.innerHTML = '⏳ Envoi en cours...';
         submitBtn.disabled = true;
+        console.log('🔘 Bouton disabled');
 
         try {
-            console.log('🌐 Envoi vers /envoyer-contact/');
-            
+            console.log('🌐 ENVOI VERS /envoyer-contact/');
+            console.log('📦 Payload JSON:', JSON.stringify(data));
+
+            const csrfToken = getCSRFToken();
+            console.log('🔐 CSRF Token:', csrfToken ? 'présent' : 'manquant');
+
             const response = await fetch('/envoyer-contact/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': getCSRFToken() || ''
+                    'X-CSRFToken': csrfToken || ''
                 },
                 body: JSON.stringify(data),
-                credentials: 'same-origin',
-                signal: AbortSignal.timeout(30000) // 30 secondes timeout
+                credentials: 'same-origin'
             });
 
-            console.log('📊 Réponse du serveur:', response.status, response.statusText);
+            console.log(`📊 RÉPONSE HTTP: ${response.status} ${response.statusText}`);
 
             if (response.ok) {
                 try {
                     const result = await response.json();
-                    console.log('✅ Succès:', result);
+                    console.log('✅ JSON Response:', result);
                 } catch (e) {
-                    console.log('✅ Message envoyé (pas de JSON en réponse)');
+                    console.log('✅ Response OK (pas de JSON)');
                 }
-                showToast("✅ Merci ! Votre message a été reçu.", 'success');
+                showToast('✅ Merci ! Votre message a été reçu.', 'success');
                 contactForm.reset();
-            } else if (response.status === 404) {
-                console.error('❌ Endpoint /envoyer-contact/ introuvable (404)');
-                showToast("❌ Erreur 404 : L'endpoint n'existe pas. Vérifiez votre urls.py", 'error');
-            } else if (response.status === 403) {
-                console.error('❌ Token CSRF invalide (403)');
-                showToast("❌ Erreur CSRF. Rafraîchissez la page.", 'error');
-            } else if (response.status === 500) {
-                const text = await response.text();
-                console.error('❌ Erreur serveur 500 - Texte complet:', text);
-                // Essayer de parser le JSON si c'est une erreur Django
-                try {
-                    const errorJson = JSON.parse(text);
-                    console.error('❌ Erreur JSON:', errorJson);
-                    showToast(`❌ Erreur serveur: ${errorJson.message || 'Erreur inconnue'}`, 'error');
-                } catch (e) {
-                    showToast("❌ Erreur serveur 500. Vérifiez les logs Django.", 'error');
-                }
+                console.log('✅ Formulaire réinitialisé');
             } else {
-                console.error('❌ Erreur HTTP:', response.status);
-                showToast(`❌ Erreur ${response.status}: ${response.statusText}`, 'error');
+                // Lire le texte de réponse pour le débugage
+                const responseText = await response.text();
+                console.error(`❌ Erreur HTTP ${response.status}:`, responseText);
+
+                if (response.status === 404) {
+                    showToast('❌ Erreur 404: Endpoint /envoyer-contact/ introuvable', 'error');
+                } else if (response.status === 403) {
+                    showToast('❌ Erreur 403: Problème CSRF. Rafraîchissez la page.', 'error');
+                } else if (response.status === 500) {
+                    showToast('❌ Erreur 500: Erreur serveur. Vérifiez les logs Django.', 'error');
+                } else {
+                    showToast(`❌ Erreur ${response.status}: ${response.statusText}`, 'error');
+                }
             }
         } catch (error) {
-            console.error('❌ Erreur réseau:', error);
-            showToast('❌ Impossible de contacter le serveur. Vérifiez votre connexion.', 'error');
+            console.error('❌ ERREUR RÉSEAU/FETCH:', error);
+            console.error('  Type:', error.name);
+            console.error('  Message:', error.message);
+            showToast('❌ Erreur de connexion. Vérifiez votre internet.', 'error');
         } finally {
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
+            console.log('🔘 Bouton re-activé');
         }
     });
 }
