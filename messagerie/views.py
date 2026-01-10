@@ -1,5 +1,4 @@
 import json
-import logging
 import threading
 from django.shortcuts import render
 from django.http import JsonResponse
@@ -7,8 +6,6 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-
-logger = logging.getLogger('messagerie')
 
 def page_accueil(request):
     return render(request, 'index.html')
