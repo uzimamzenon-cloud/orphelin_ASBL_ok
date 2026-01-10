@@ -921,24 +921,24 @@
                     <!-- ICI : Vérifie bien que l'id est contactForm -->
                     <form id="contactForm">
                         {% csrf_token %}
-                        <!-- ICI : id="name" -->
-                        <input type="text" id="name" class="form-control" required placeholder="Votre Nom">
+                        <!-- ICI : id="name" + name="name" -->
+                        <input type="text" id="name" name="name" class="form-control" required placeholder="Votre Nom">
 
-                        <!-- ICI : id="email" -->
-                        <input type="email" id="email" class="form-control" required placeholder="Votre Email">
+                        <!-- ICI : id="email" + name="email" -->
+                        <input type="email" id="email" name="email" class="form-control" required placeholder="Votre Email">
 
-                        <!-- ICI : id="subject" -->
-                        <input type="text" id="subject" class="form-control" placeholder="Sujet">
+                        <!-- ICI : id="subject" + name="subject" -->
+                        <input type="text" id="subject" name="subject" class="form-control" placeholder="Sujet">
 
-                        <!-- ICI : id="reason" (C'est ce qui manque souvent !) -->
-                        <select id="reason" class="form-control">
+                        <!-- ICI : id="reason" + name="reason" -->
+                        <select id="reason" name="reason" class="form-control">
                             <option value="Information">Demande d'info</option>
                             <option value="Don">Faire un don</option>
                             <option value="Partenariat">Proposition de partenariat</option>
                         </select>
 
-                        <!-- ICI : id="message" -->
-                        <textarea id="message" class="form-control" required placeholder="Votre Message"></textarea>
+                        <!-- ICI : id="message" + name="message" -->
+                        <textarea id="message" name="message" class="form-control" required placeholder="Votre Message"></textarea>
 
                         <!-- TRÈS IMPORTANT : Le bouton doit être type="submit" -->
                         <button type="submit" class="btn btn-primary btn-lg">Envoyer le message</button>
