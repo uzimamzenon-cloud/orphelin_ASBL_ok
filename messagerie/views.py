@@ -25,7 +25,7 @@ def send_emails_async(nom, email, message, sujet, motif):
     pour ne pas bloquer la réponse HTTP
     """
     try:
-        logger.info(f"📧 Envoi des emails pour {email}...")
+        logger.info(f"📧 [ASYNC] Début envoi des emails pour {email}")
         
         # Email vers l'ASBL
         sujet_asbl = f"📬 Contact ASBL: {sujet} ({nom})"
@@ -51,9 +51,9 @@ Envoyé par le formulaire de contact du site
                 recipient_list=['uzimamzenon@gmail.com'],
                 fail_silently=False,
             )
-            logger.info(f"✅ Email ASBL envoyé avec succès")
+            logger.info(f"✅ [ASYNC] Email ASBL envoyé avec succès")
         except Exception as e:
-            logger.error(f"⚠️ Erreur envoi email ASBL: {type(e).__name__}: {e}")
+            logger.error(f"⚠️ [ASYNC] Erreur envoi email ASBL: {type(e).__name__}: {e}")
 
         # Email de confirmation au visiteur
         sujet_confirm = f"✅ Nous avons reçu votre message"
@@ -75,25 +75,43 @@ Orphelin Priorité ASBL
                 recipient_list=[email],
                 fail_silently=False,
             )
-            logger.info(f"✅ Email confirmation envoyé à {email}")
+            logger.info(f"✅ [ASYNC] Email confirmation envoyé à {email}")
         except Exception as e:
-            logger.error(f"⚠️ Erreur envoi email confirmation: {type(e).__name__}: {e}")
+            logger.error(f"⚠️ [ASYNC] Erreur envoi email confirmation: {type(e).__name__}: {e}")
+        
+        logger.info(f"✅ [ASYNC] Fin envoi des emails")
             
     except Exception as e:
-        logger.error(f"❌ Erreur critique dans send_emails_async: {type(e).__name__}: {e}", exc_info=True)
+        logger.error(f"❌ [ASYNC] Erreur critique dans send_emails_async: {type(e).__name__}: {e}", exc_info=True)
 
 @csrf_exempt
-@require_http_methods(["POST"])
+@require_http_methods(["POST", "OPTIONS"])
 def enregistrer_message(request):
     """
     Reçoit les données du formulaire de contact et envoie des emails
     Les emails sont envoyés en arrière-plan pour ne pas bloquer la réponse
     """
+    
+    # Gérer les requêtes OPTIONS pour CORS
+    if request.method == 'OPTIONS':
+        response = JsonResponse({'status': 'ok'})
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type, X-CSRFToken'
+        return response
+    
+    logger.info("=" * 60)
+    logger.info("📨 NOUVELLE REQUÊTE DE FORMULAIRE")
+    logger.info("=" * 60)
+    
     try:
         # 1. Parser les données JSON
+        logger.info(f"📥 Request body size: {len(request.body)} bytes")
+        
         try:
             data = json.loads(request.body)
-            logger.info(f"📥 Données reçues: {data}")
+            logger.info(f"✅ JSON parsé correctement")
+            logger.info(f"📦 Données reçues: {data}")
         except json.JSONDecodeError as e:
             logger.error(f"❌ JSON invalide: {e}")
             return JsonResponse(
@@ -108,8 +126,12 @@ def enregistrer_message(request):
         sujet = data.get('sujet', 'Sans sujet').strip()
         motif = data.get('motif', 'Non spécifié').strip()
 
+        logger.info(f"✓ Nom: {nom or 'VIDE'}")
+        logger.info(f"✓ Email: {email or 'VIDE'}")
+        logger.info(f"✓ Message: {message[:50] if message else 'VIDE'}...")
+
         if not nom or not email or not message:
-            logger.warning(f"⚠️ Champs manquants - Nom: {nom}, Email: {email}, Message: {message}")
+            logger.warning(f"⚠️ VALIDATION ÉCHOUÉE - Champs manquants")
             return JsonResponse(
                 {"success": False, "message": "Les champs nom, email et message sont obligatoires"},
                 status=400
@@ -117,12 +139,14 @@ def enregistrer_message(request):
 
         # 3. Valider le format email basique
         if '@' not in email or '.' not in email:
-            logger.warning(f"⚠️ Email invalide: {email}")
+            logger.warning(f"⚠️ EMAIL INVALIDE: {email}")
             return JsonResponse(
                 {"success": False, "message": "Format email invalide"},
                 status=400
             )
 
+        logger.info(f"✅ VALIDATION RÉUSSIE - Lancement envoi async...")
+        
         # 4. Lancer l'envoi des emails en arrière-plan (NON-BLOQUANT)
         email_thread = threading.Thread(
             target=send_emails_async,
@@ -130,17 +154,21 @@ def enregistrer_message(request):
             daemon=True
         )
         email_thread.start()
-        
-        logger.info(f"✅ Formulaire enregistré pour {email} - Envoi des emails en cours...")
+        logger.info(f"✅ Thread d'envoi lancé")
         
         # Retourner immédiatement sans attendre les emails
-        return JsonResponse(
-            {"success": True, "message": "✅ Merci! Votre message a été enregistré. Vous recevrez un email de confirmation."},
-            status=201
-        )
+        response_data = {
+            "success": True, 
+            "message": "✅ Merci! Votre message a été enregistré. Vous recevrez un email de confirmation."
+        }
+        logger.info(f"✅ RÉPONSE 201 ENVOYÉE: {response_data}")
+        logger.info("=" * 60)
+        
+        return JsonResponse(response_data, status=201)
 
     except Exception as e:
-        logger.error(f"❌ Erreur non gérée: {type(e).__name__}: {e}", exc_info=True)
+        logger.error(f"❌ ERREUR NON GÉRÉE: {type(e).__name__}: {e}", exc_info=True)
+        logger.info("=" * 60)
         return JsonResponse(
             {"success": False, "message": "Erreur serveur interne"},
             status=500
