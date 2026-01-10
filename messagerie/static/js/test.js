@@ -1440,10 +1440,13 @@ function initContactForm() {
                 try {
                     const result = await response.json();
                     console.log('✅ JSON Response:', result);
+                    // Afficher le message du serveur
+                    const message = result.message || '✅ Merci ! Votre message a été reçu.';
+                    showToast(message, 'success');
                 } catch (e) {
                     console.log('✅ Response OK (pas de JSON)');
+                    showToast('✅ Merci ! Votre message a été reçu.', 'success');
                 }
-                showToast('✅ Merci ! Votre message a été reçu.', 'success');
                 contactForm.reset();
                 console.log('✅ Formulaire réinitialisé');
             } else {

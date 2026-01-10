@@ -94,9 +94,12 @@ def enregistrer_message(request):
         )
         thread.start()
         
-        # Répondre immédiatement
+        # Répondre immédiatement avec le bon message
         return JsonResponse(
-            {"success": True, "message": "Message enregistré avec succès"},
+            {
+                "success": True, 
+                "message": f"✅ Message enregistré avec succès ! Un email de confirmation a été envoyé à {email}"
+            },
             status=201
         )
 
