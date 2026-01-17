@@ -5,10 +5,9 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- SÉCURITÉ ---
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-7fg2k9d8jf9djf8j9d8fj9d8fj9d8fj9d8fj9d8')
-# DEBUG = True en local, False sur Render
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
-ALLOWED_HOSTS = ['orphelin-asbl-ok.onrender.com', 'orphelin-asbl.onrender.com', 'localhost', '127.0.0.1', '*']
+SECRET_KEY = 'django-insecure-cle-de-test-a-changer-en-production'
+DEBUG = True  # Laisse True pour débugger, mets False quand tout sera fini
+ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', 'orphelin-asbl.onrender.com']
 
 # --- APPLICATIONS ---
 INSTALLED_APPS = [
@@ -38,7 +37,8 @@ MIDDLEWARE = [
 ]
 
 # ⚠️ CORRECTION : Ici on met le nom EXACT de ton dossier (configuration)
-ROOT_URLCONF = 'config.urls'
+# ⚠️ CORRECTION : Ici on met le nom EXACT de ton dossier (django_config)
+ROOT_URLCONF = 'django_config.urls'
 
 TEMPLATES = [
     {
@@ -57,7 +57,7 @@ TEMPLATES = [
 ]
 
 # ⚠️ CORRECTION : Ici aussi
-WSGI_APPLICATION = 'config.wsgi.application'
+WSGI_APPLICATION = 'django_config.wsgi.application'
 
 # --- BASE DE DONNÉES ---
 DATABASES = {
@@ -81,12 +81,7 @@ STORAGES = {
 
 # --- SÉCURITÉ ---
 CORS_ALLOW_ALL_ORIGINS = True
-CSRF_TRUSTED_ORIGINS = ['https://orphelin-asbl-ok.onrender.com', 'https://orphelin-asbl.onrender.com', 'http://127.0.0.1:8000', 'http://localhost:8000']
-
-# HTTPS sur Render
-SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'False') == 'True'
-SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'False') == 'True'
-CSRF_COOKIE_SECURE = os.environ.get('CSRF_COOKIE_SECURE', 'False') == 'True'
+CSRF_TRUSTED_ORIGINS = ['https://orphelin-asbl.onrender.com', 'http://127.0.0.1:8000']
 
 # --- CONFIGURATION EMAIL (GMAIL) ---
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -94,45 +89,8 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'uzimamzenon@gmail.com'
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'dktj wksi qcpk lewn')
-DEFAULT_FROM_EMAIL = 'uzimamzenon@gmail.com <uzimamzenon@gmail.com>'
+# Ce code de 16 lettres doit être dans ton onglet "Environment" sur Render
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'dktj wksi qcpk lewn') 
+DEFAULT_FROM_EMAIL = f"Orphelin Priorité ASBL <{EMAIL_HOST_USER}>"
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# --- LOGGING CONFIGURATION ---
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-            'style': '{',
-        },
-        'simple': {
-            'format': '{levelname} {message}',
-            'style': '{',
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-        },
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': 'INFO',
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        'messagerie': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-    },
-}
